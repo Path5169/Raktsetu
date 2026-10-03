@@ -1,0 +1,16 @@
+# Local runtime data
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

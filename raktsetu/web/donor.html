@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RaktSetu · Donor</title>
+<style>
+:root{--ground:#e8ecf0;--panel:#fff;--ink:#1b2130;--soft:#5d6677;--line:#d3d9e1;--blood:#b3122b;--blood-bg:#f8dde1;--amber:#8a5700;--amber-bg:#fbebc9;--ok:#0f6e5f;--ok-bg:#d9f0ea;--focus:#2154d1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:0 clamp(14px,4vw,28px) 48px}
+header{display:flex;justify-content:space-between;align-items:end;padding:22px 0 16px;gap:12px;flex-wrap:wrap}
+.mark{font:700 1.6rem/1 Georgia,serif;letter-spacing:-.02em;margin:0}
+.mark small{font:600 .8rem "Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--blood);margin-left:8px}
+header a,.link{color:var(--soft);font-size:.92rem;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;font-family:inherit}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+h2{font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--soft);margin:0 0 10px}
+h3{margin:0;font-size:1.25rem}
+p{margin:6px 0}.soft{color:var(--soft);font-size:.92rem}
+input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:10px;width:100%;background:#fff;color:var(--ink)}
+input:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.btn{border:0;background:var(--ink);color:#fff;font:inherit;font-weight:600;padding:11px 16px;border-radius:8px;cursor:pointer}
+.btn:hover{background:#2c3550}.btn.red{background:var(--blood)}.btn.red:hover{background:#8f0e22}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:500}.btn.ghost:hover{background:#f2f4f7}
+.btn:disabled{opacity:.55;cursor:default}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.row>*{flex:1 1 140px}
+.demo{background:var(--amber-bg);color:var(--amber);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:.92rem}
+.demo b{font:700 1.2rem ui-monospace,Consolas,monospace;letter-spacing:.15em;color:var(--ink)}
+details{margin-top:12px;font-size:.92rem}summary{cursor:pointer;color:var(--soft)}
+details button{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 4px;font:inherit;cursor:pointer;border-radius:6px}
+details button:hover{background:#f2f4f7}details span{color:var(--soft)}
+.err{color:var(--blood);font-size:.92rem;margin-top:8px;min-height:1.2em}
+.hero{display:flex;gap:14px;align-items:center}
+.grp{flex:none;width:72px;height:72px;border-radius:50%;background:var(--blood);color:#fff;display:grid;place-items:center;font:700 1.8rem Rockwell,Cambria,Georgia,serif}
+.grp sup{font-size:.55em;vertical-align:.45em}
+.elig{border-left:6px solid var(--ok);background:var(--ok-bg)}
+.elig.wait{border-left-color:#c58a12;background:var(--amber-bg)}.elig.no{border-left-color:var(--blood);background:var(--blood-bg)}
+.big{font:700 2rem/1.1 Rockwell,Cambria,Georgia,serif;margin:2px 0}
+.bar{height:8px;background:#0003;border-radius:4px;overflow:hidden;margin:10px 0 4px}.bar i{display:block;height:100%;background:var(--ink);opacity:.75}
+.reasons{margin:6px 0 0;padding-left:18px;font-size:.92rem}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat b{display:block;font:700 1.5rem/1.1 Rockwell,Cambria,Georgia,serif}
+.pips{display:flex;gap:6px;margin-top:10px}.pips i{width:28px;height:8px;border-radius:4px;background:#dfe3e9}.pips i.on{background:var(--blood)}
+.call{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px;background:#fff}
+.call.open{border-color:var(--blood);box-shadow:0 0 0 3px var(--blood-bg)}
+.call .tag{display:inline-block;font-size:.78rem;font-weight:700;border-radius:99px;padding:2px 10px;background:var(--blood-bg);color:var(--blood)}
+.call .tag.ok{background:var(--ok-bg);color:var(--ok)}.call .tag.off{background:#e6eaef;color:var(--soft)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}td{padding:7px 0;border-top:1px solid var(--line)}td:last-child{text-align:right;color:var(--soft)}
+tr:first-child td{border-top:0}
+.pend{color:var(--amber);font-weight:600}
+.foot{font-size:.82rem;color:var(--soft);margin-top:18px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,90px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;transition:transform .3s;max-width:90vw;z-index:9}
+#toast.on{transform:translate(-50%,0)}#toast.err{background:var(--blood)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body><div class="wrap">
+<header><h1 class="mark">RaktSetu<small>Donor</small></h1><div><a href="/">Hospital &amp; bank dashboard</a> <button class="link" id="out" hidden style="margin-left:12px">Log out</button></div></header>
+<div id="app"></div>
+<p class="foot">Demo data, fictional people. Eligibility here follows NBTC guidelines (age, weight, gap since last donation) and is indicative only: haemoglobin, BP and your medical history are checked by a doctor at the blood bank, who makes the final call.</p>
+</div><div id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s), app=$("#app");
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const G=g=>g.slice(0,-1)+"<sup>"+(g.endsWith("+")?"+":"\u2212")+"</sup>";
+const fmt=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const NAME={RBC:"whole blood",PLT:"platelets"};
+let token=sessionStorage.getItem("rs_token"), phone="", timer=null, step="phone";
+
+function toast(m,err){const t=$("#toast");t.textContent=m;t.className="on"+(err?" err":"");clearTimeout(t.h);t.h=setTimeout(()=>t.className="",3600)}
+async function api(url,body){
+  const r=await fetch(url,{method:body?"POST":"GET",headers:token?{Authorization:"Bearer "+token}:{},body:body?JSON.stringify(body):undefined});
+  let d={};try{d=await r.json()}catch(e){}
+  if(r.status===401&&token){logout(true)}
+  return[r.ok,d]
+}
+function logout(expired){token=null;sessionStorage.removeItem("rs_token");clearInterval(timer);step="phone";$("#out").hidden=true;if(expired)toast("Please log in again.",true);login()}
+$("#out").onclick=()=>logout();
+
+/* ---------- login ---------- */
+async function login(demo){
+  if(step==="phone"){
+    app.innerHTML=`<div class="card"><h2>Donor login</h2><h3>Enter your mobile number</h3><p class="soft">We send a one-time code. In this demo the code is shown on screen instead of by SMS.</p>
+      <form id="pf"><label class="soft" for="ph">Mobile number</label><input id="ph" inputmode="numeric" autocomplete="tel" placeholder="10-digit number" value="${esc(phone)}">
+      <div class="row"><button class="btn red">Send code</button></div><div class="err" id="e" role="alert"></div></form>
+      <details id="dm"><summary>Demo donors (tap to fill in)</summary><div id="dl" class="soft" style="margin-top:6px">Loading...</div></details></div>`;
+    $("#pf").onsubmit=async e=>{e.preventDefault();phone=$("#ph").value;const[ok,d]=await api("/api/donor/otp/send",{phone});
+      if(!ok)return $("#e").textContent=d.error;phone=d.phone;step="otp";demoCode=d.demo_otp;login()};
+    $("#dm").addEventListener("toggle",async()=>{if(!$("#dm").open||$("#dl").dataset.on)return;$("#dl").dataset.on=1;
+      const[ok,l]=await api("/api/donor/demo");$("#dl").innerHTML=ok?l.map(x=>`<button type="button" data-p="${esc(x.phone)}">${esc(x.name)} <span>${esc(x.blood_group)} \u00b7 ${esc(x.phone)}</span></button>`).join(""):"Not available."});
+    $("#dl").onclick=e=>{const b=e.target.closest("button");if(b){$("#ph").value=b.dataset.p;$("#ph").focus()}};
+    return}
+  app.innerHTML=`<div class="card"><h2>Donor login</h2><h3>Enter the code</h3><p class="soft">Sent to ${esc(phone)}. It works for 5 minutes.</p>
+    ${demoCode?`<div class="demo">Demo mode: no SMS is sent. Your code is <b>${esc(demoCode)}</b></div>`:""}
+    <form id="of"><label class="soft" for="otp" style="display:block;margin-top:12px">6-digit code</label><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <div class="row"><button class="btn red">Log in</button><button type="button" class="btn ghost" id="back">Use another number</button></div><div class="err" id="e" role="alert"></div></form></div>`;
+  $("#otp").focus();$("#back").onclick=()=>{step="phone";login()};
+  $("#of").onsubmit=async e=>{e.preventDefault();const[ok,d]=await api("/api/donor/otp/verify",{phone,otp:$("#otp").value});
+    if(!ok)return $("#e").textContent=d.error;token=d.token;sessionStorage.setItem("rs_token",token);demoCode=null;start()}
+}
+let demoCode=null;
+
+/* ---------- home ---------- */
+function eligCard(p){
+  const e=p.eligibility;
+  if(e.eligible)return `<div class="card elig"><h2>Eligibility</h2><div class="big">You can donate now</div><p class="soft">Meets the age, weight and gap rules. Blood banks near you may call when someone needs your group.</p></div>`;
+  if(e.days_left!==null){
+    const pct=Math.round((e.progress||0)*100);
+    return `<div class="card elig wait"><h2>Eligibility</h2><div class="big">Eligible in ${e.days_left} day${e.days_left===1?"":"s"}</div>
+      <p>${e.next_date?"From "+fmt(e.next_date)+".":""}</p>${p.last_donation&&e.gap_days?`<div class="bar" role="img" aria-label="${pct}% of the waiting period done"><i style="width:${pct}%"></i></div><p class="soft">${pct}% of the ${e.gap_days}-day gap since your last donation.</p>`:""}
+      <ul class="reasons">${e.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`}
+  return `<div class="card elig no"><h2>Eligibility</h2><div class="big">Not eligible at the moment</div><ul class="reasons">${e.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`}
+
+function badgeCard(p){
+  const b=p.badge,tiers=[1,3,5,10],n=b.donations;
+  return `<div class="card"><h2>Your impact</h2><div class="stats">
+    <div class="stat"><b>${n}</b><span class="soft">verified donation${n===1?"":"s"}</span></div>
+    <div class="stat"><b>${p.streak?p.streak+" in a row":"\u2013"}</b><span class="soft">${p.streak?"streak, keep it going":"no active streak"}</span></div></div>
+    <p style="margin-top:12px">${b.name?`Badge: <b>${esc(b.name)}</b>`:"No badge yet. Your first verified donation earns <b>First Drop</b>."}</p>
+    <div class="pips" aria-hidden="true">${tiers.map(t=>`<i class="${n>=t?"on":""}"></i>`).join("")}</div>
+    <p class="soft">${b.next?`${b.next.needs} more verified donation${b.next.needs===1?"":"s"} to <b>${esc(b.next.name)}</b>.`:"Top badge reached. Thank you."}
+    A donation counts once the blood bank verifies it. A streak breaks after a gap of about six months.</p></div>`}
+
+function callCard(c){
+  const left=c.slots_needed-c.slots_filled,mine=c.response==="accepted";
+  let tag,body;
+  if(mine){tag='<span class="tag ok">You are confirmed</span>';body=`<p>Please go to <b>${esc(c.bank)}</b>. They will verify your donation.</p>`}
+  else if(c.response==="declined"){tag='<span class="tag off">You passed</span>';body=""}
+  else if(c.status==="open"){tag='<span class="tag">Needed now</span>';
+    body=`<p>${left} donor${left===1?"":"s"} still needed at <b>${esc(c.bank)}</b>, ${c.km} km from you. First to accept gets the slot.</p>
+      <div class="row"><button class="btn red" data-a="accept" data-c="${c.id}">Accept</button><button class="btn ghost" data-a="decline" data-c="${c.id}">Not now</button></div>`}
+  else{tag='<span class="tag off">Already covered</span>';body='<p class="soft">Other donors have filled every slot. Thank you for being ready to help.</p>'}
+  return `<div class="call ${c.status==="open"&&!c.response?"open":""}"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <h3>${G(c.blood_group)} ${NAME[c.component]}</h3>${tag}</div>${c.hospital?`<p class="soft">For a patient at ${esc(c.hospital)}</p>`:`<p class="soft">${esc(c.reason||"Stock is low")}</p>`}${body}</div>`}
+
+function render(p){
+  const hist=p.history;
+  app.innerHTML=`<div class="card"><div class="hero"><div class="grp" aria-label="Blood group ${esc(p.blood_group)}">${G(p.blood_group)}</div>
+      <div><h3>${esc(p.name)}</h3><p class="soft" style="margin:2px 0 0">${p.sex==="F"?"Woman":"Man"}, ${p.eligibility.age??"?"} years, ${p.weight_kg??"?"} kg</p></div></div></div>
+    ${eligCard(p)}
+    <div class="card"><h2>Requests for you</h2>${p.calls.length?p.calls.map(callCard).join(""):'<p class="soft">Nothing right now. We only contact you when your group is needed nearby and you are eligible, never as a broadcast.</p>'}</div>
+    ${badgeCard(p)}
+    <div class="card"><h2>Donation history</h2>${hist.length?`<table>${hist.map(h=>`<tr><td>${h.status==="verified"?fmt(h.date):'<span class="pend">Waiting for blood bank to verify</span>'}</td><td>${esc(h.bank||"")}</td></tr>`).join("")}</table>`:'<p class="soft">No donations yet.</p>'}</div>`;
+}
+async function refresh(){const[ok,p]=await api("/api/donor/me");if(ok)render(p)}
+function start(){$("#out").hidden=false;refresh();clearInterval(timer);timer=setInterval(refresh,6000)}
+
+app.addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-a]");if(!b)return;b.disabled=true;
+  const[ok,d]=await api("/api/donor/"+b.dataset.a,{call_id:b.dataset.c});
+  if(!ok){toast(d.error||"Something went wrong.",true)}
+  else if(b.dataset.a==="accept")toast(d.message,!d.won);
+  refresh()});
+if(token)start();else login();
+</script></body></html>
