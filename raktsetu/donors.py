@@ -98,6 +98,7 @@ def verify_donation(conn, donation_id, actor="bank"):
     _refresh_last(conn, d["donor_id"])
     log(conn, actor, "DONATION_VERIFIED", f"donation #{donation_id} for donor #{d['donor_id']}"); conn.commit()
 
+<<<<<<< HEAD
 def pending_donations(conn):
     """Return pledged donations for the Phase 5 blood-bank verification queue."""
     rows = conn.execute("""SELECT dn.id, dn.created_at, dn.donated_on, d.name donor, d.blood_group,
@@ -118,6 +119,8 @@ def donation_summary(conn):
         "verified_total": conn.execute("SELECT COUNT(*) FROM donations WHERE status='verified'").fetchone()[0],
     }
 
+=======
+>>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
 def profile(conn, donor_id, component="RBC", today=None):
     today, d = today or date.today(), get_donor(conn, donor_id)
     rows = conn.execute("SELECT dn.id, dn.donated_on, dn.status, dn.created_at, b.name bank FROM donations dn LEFT JOIN banks b ON b.id=dn.bank_id "
