@@ -61,7 +61,7 @@ def _reserve(conn, unit_ids, request_id):
     except Exception:
         conn.rollback(); raise
 
-def create_request(conn, hospital_id, group, component="RBC", qty=1, actor=None):
+def create_request(conn, hospital_id, group, component="RBC", qty=1, actor=None, alert_donors=True):
     if group not in GROUPS: raise ValueError(f"Unknown blood group {group}.")
     if component not in SHELF_LIFE_DAYS: raise ValueError(f"Unknown component {component}.")
     h = conn.execute("SELECT * FROM hospitals WHERE id=?", (hospital_id,)).fetchone()
@@ -90,7 +90,13 @@ def create_request(conn, hospital_id, group, component="RBC", qty=1, actor=None)
         log(conn, actor, "RACE_LOST", f"#{rid}: units at {best['bank']} were taken first, rerouting"); conn.commit()
     conn.execute("UPDATE requests SET status='unfulfilled' WHERE id=?", (rid,))
     log(conn, actor, "UNFULFILLED", f"#{rid}: no bank could supply {qty} x {group} {component}"); conn.commit()
-    return {"request_id": rid, "status": "unfulfilled", "fallthroughs": lost, "ranking": []}
+    out = {"request_id": rid, "status": "unfulfilled", "fallthroughs": lost, "ranking": []}
+    if alert_donors:   # nothing in stock: call compatible donors near the hospital (wave 1 goes out now)
+        from . import alerts
+        c = alerts.open_call(conn, group, component, qty, lat=h["lat"], lon=h["lon"], request_id=rid, actor=actor,
+                             reason=f"Request #{rid} from {h['name']} could not be covered from stock.")
+        out["donor_call"] = {"call_id": c["call_id"], "alerted": len(c["alerted"]), "existing": c["existing"]}
+    return out
 
 def _finish(conn, rid, unit_status, req_status):
     n = conn.execute("UPDATE units SET status=?,reserved_until=NULL" + (",request_id=NULL" if unit_status == "available" else "") + " WHERE request_id=? AND status='reserved'", (unit_status, rid)).rowcount
@@ -109,7 +115,7 @@ def race(group, component="RBC", n=6):
     out, gate = [], threading.Barrier(n)
     def go(i):
         c = connect(); gate.wait()
-        try: out.append(create_request(c, hosp[i % len(hosp)], group, component, 1, actor="race-test"))
+        try: out.append(create_request(c, hosp[i % len(hosp)], group, component, 1, actor="race-test", alert_donors=False))
         finally: c.close()
     ts = [threading.Thread(target=go, args=(i,)) for i in range(n)]
     [t.start() for t in ts]; [t.join() for t in ts]

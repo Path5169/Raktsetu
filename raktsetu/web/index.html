@@ -69,12 +69,16 @@ select{flex:1 1 160px}
 .res h3{font-size:1.05rem;margin:0 0 4px}.res ul{margin:6px 0 10px;padding-left:18px;color:var(--soft);font-size:.92rem}
 .two{display:flex;gap:8px;flex-wrap:wrap}.two button,.ghost{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
 .two button:hover,.ghost:hover{background:#f2f4f7}.ghost{margin-top:10px;width:100%;color:var(--soft)}
+.toplink{color:var(--soft);font-size:.95rem;margin-left:auto}
+.call{border-top:1px solid var(--line);padding:10px 0;font-size:.92rem}.call:first-of-type{border-top:0}
+.call b.open{color:var(--blood)}.call b.covered{color:var(--ok)}.call small{display:block;color:var(--soft)}
 @media(max-width:860px){main{grid-template-columns:1fr}.bags{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head>
 <body>
 <div class="wrap"><header>
   <div><h1 class="mark">RaktSetu</h1><p class="date" id="date"></p></div>
+  <a class="toplink" href="/donor">Donor app &rarr;</a>
   <div class="seg" role="group" aria-label="Blood component">
     <button id="c-RBC" aria-pressed="true">Red cells</button><button id="c-PLT" aria-pressed="false">Platelets</button>
   </div>
@@ -89,6 +93,7 @@ select{flex:1 1 160px}
       <button class="go red">Find <span id="rc">red cells</span> now</button></form>
       <div id="rres"></div>
       <button class="ghost" id="race">Run race test: 6 requests at the same moment</button></div>
+    <div class="card" id="calls"></div>
     <div class="card detail" id="detail"></div>
     <div class="card"><h2>Use these first</h2><div id="exp"></div></div>
     <div class="card"><h2>Recent activity</h2><ul class="log" id="log"></ul></div>
@@ -119,7 +124,15 @@ function render(){
     return `<button class="row" data-i="${i}"><span class="days ${d<=1?"hot":""}">${d===0?"today":d+" day"+(d>1?"s":"")}</span>
       <span>${r.n} \u00d7 ${G(r.blood_group)} ${NAME[r.component]}<small>${esc(r.bank)}</small></span></button>`}).join(""):'<p class="empty">Nothing expires in the next 3 days.</p>';
   $("#log").innerHTML=S.audit.map(a=>`<li>${ACT[a.action]||esc(a.action)}<small>${esc(a.detail)}</small></li>`).join("");
-  detail();fillReq();
+  calls();detail();fillReq();
+}
+
+function calls(){
+  const open=S.calls.some(c=>c.status==="open");
+  $("#calls").innerHTML=`<h2>Donor calls</h2>${S.calls.length?S.calls.map(c=>`<div class="call"><b class="${c.status}">${c.status==="open"?"Open":c.status==="covered"?"Covered":"Closed"}</b> ${c.slots_needed} \u00d7 ${G(c.blood_group)} ${NAME[c.component]} at ${esc(c.bank)}
+    <small>${c.slots_filled}/${c.slots_needed} donors confirmed. Wave ${c.wave} of ${S.waves}, ${c.alerted} alerted${c.declined?", "+c.declined+" passed":""}.</small><small>${esc(c.hospital?"For "+c.hospital:c.reason)}</small>
+    ${c.status==="open"&&c.alerted?`<button class="ghost" style="margin-top:6px;padding:5px 10px" data-call="race" data-id="${c.id}">Simulate: all alerted donors accept at once</button>`:""}</div>`).join(""):'<p class="empty">No open calls. Donors are alerted automatically when a request cannot be covered from stock.</p>'}
+  <div class="two" style="margin-top:10px"><button data-call="scan">Scan for low stock</button><button data-call="tick" ${open?"":"disabled"} title="Normally waves widen after ${S.wave_timeout_min} minutes">Skip wait: next wave</button></div>`;
 }
 
 function detail(){
@@ -142,6 +155,12 @@ function toast(m,err){const t=$("#toast");t.textContent=m;t.className="on"+(err?
 
 document.addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.call){
+    if(t.dataset.call==="scan"){const[ok,d]=await post("/api/calls/scan",{});if(!ok)return toast(d.error,true);await load();return toast(d.opened.length?`Called donors for ${d.opened.map(o=>o.blood_group).join(", ")}.`:"No group is critically low.")}
+    if(t.dataset.call==="tick"){const[ok,d]=await post("/api/calls/tick",{force:true});if(!ok)return toast(d.error,true);await load();return toast(d.moved.length?"Moved to the next wave.":"Nothing to escalate.")}
+    if(t.dataset.call==="race"){t.disabled=true;const[ok,d]=await post("/api/calls/race",{call_id:t.dataset.id});if(!ok){t.disabled=false;return toast(d.error,true)}await load();
+      return toast(`${d.donors} donors accepted at once for ${d.slots} slot${d.slots===1?"":"s"}: ${d.won} won, ${d.covered} saw \"already covered\". Overbooked: ${d.overbooked}.`)}
+  }
   if(t.dataset.q){const q=$("#rq");q.value=Math.min(10,Math.max(1,+q.value+ +t.dataset.q));return}
   if(t.dataset.act){const[ok,d]=await post("/api/request/"+t.dataset.act,{request_id:t.dataset.rid});if(!ok)return toast(d.error,true);
     $("#rres").innerHTML="";await load();return toast(t.dataset.act==="issue"?"Marked as issued.":"Reservation cancelled, units are back in stock.")}
@@ -171,7 +190,8 @@ async function reqSubmit(){
   const g=$("#rg").value,[ok,d]=await post("/api/request",{hospital_id:$("#rh").value,group:g,component:comp,qty:$("#rq").value});
   if(!ok)return toast(d.error,true);
   await load();
-  if(d.status!=="reserved"){$("#rres").innerHTML='<div class="res"><h3>Nothing available</h3><p class="empty">No bank can supply this right now.</p></div>';return}
+  if(d.status!=="reserved"){const dc=d.donor_call,msg=dc?(dc.existing?"A donor call is already open.":dc.alerted+" nearby eligible donor"+(dc.alerted===1?"":"s")+" alerted."):"";
+    $("#rres").innerHTML=`<div class="res"><h3>Nothing available</h3><p class="empty">No bank can supply this right now. ${msg?"<b>"+msg+"</b>":""}</p></div>`;return}
   const b=d.bank,alt=d.ranking.slice(1,3);
   $("#rres").innerHTML=`<div class="res"><h3>Reserved: ${b.units.replace(/([ABO]+)([+-])/g,(m,x,y)=>x+(y==="-"?"\u2212":"+"))} ${NAME[comp]}</h3>
     <p class="empty"><b style="color:var(--ink)">${esc(b.bank)}</b>, ${b.km} km away. Held until ${new Date(d.hold_until).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}.</p>

@@ -1,6 +1,6 @@
 import argparse, os, sys
 from datetime import date
-from . import db, dispatch, inventory as inv, seed as seeder
+from . import alerts, db, dispatch, donors as dn, inventory as inv, seed as seeder
 from .compat import GROUPS, SHELF_LIFE_DAYS, donors_for, recipients_for, reach
 
 USE = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
@@ -14,7 +14,7 @@ def find_bank(conn, key):
 
 def cmd_init(a, conn):
     seeder.seed(conn)
-    print(c("Demo data loaded: 4 banks, 3 hospitals, 8 donors, units across all groups.", GRN))
+    print(c("Demo data loaded: 4 banks, 3 hospitals, 20 donors, units across all groups.", GRN))
     print("Try:  python -m raktsetu stock")
 
 def cmd_stock(a, conn):
@@ -82,6 +82,72 @@ def cmd_race(a, conn):
     print(f"served {r['served']}   turned away {r['turned_away']}   rerouted {r['rerouted']}   " + c(f"oversold {r['oversold']}", GRN if not r["oversold"] else RED))
     print(c("Stock restored after the test.", DIM))
 
+def _hospital(conn, key):
+    rows = conn.execute("SELECT * FROM hospitals WHERE CAST(id AS TEXT)=? OR LOWER(name) LIKE ?", (key, f"%{key.lower()}%")).fetchall()
+    if len(rows) != 1: sys.exit(f"Hospital '{key}' matched {len(rows)}. Use id or a unique name part.")
+    return rows[0]
+
+def cmd_donors(a, conn):
+    rows = conn.execute("SELECT * FROM donors ORDER BY id").fetchall()
+    shown = 0
+    print(c(f"\n{'ID':<4}{'Donor':<18}{'Grp':<5}{'Sex':<4}{'Age':>4}{'kg':>5}  {'Eligibility':<34}{'Badge':<11}Streak", DIM))
+    for d in rows:
+        if a.group and d["blood_group"] != a.group.upper(): continue
+        p = dn.profile(conn, d["id"], a.component); e = p["eligibility"]
+        if a.eligible and not e["eligible"]: continue
+        shown += 1
+        status = c("eligible now", GRN) if e["eligible"] else c(f"in {e['days_left']} days", YEL) if e["days_left"] is not None else c((e["reasons"] or ["?"])[0][:32], RED)
+        pad = " " * (34 - len(status) + (len(status) - len(__import__("re").sub(r"\033\[[0-9;]*m", "", status))))
+        print(f"{d['id']:<4}{d['name']:<18}{d['blood_group']:<5}{d['sex'] or '?':<4}{e['age'] or '?':>4}{d['weight_kg'] or 0:>5.0f}  {status}{pad}{(p['badge']['name'] or '-'):<11}{p['streak'] or '-'}")
+    print(c(f"\n{shown} donor(s). Rules are indicative: a doctor decides at donation time.", DIM))
+
+def _print_alerted(conn, r, call_id):
+    call = {"blood_group": conn.execute("SELECT blood_group FROM donor_calls WHERE id=?", (call_id,)).fetchone()[0], "bank": r.get("bank") or conn.execute("SELECT b.name FROM donor_calls c JOIN banks b ON b.id=c.bank_id WHERE c.id=?", (call_id,)).fetchone()[0]}
+    for x in r["alerted"]: print(f"  wave {x['wave']}  {x['name']:<18}{x['blood_group']:<5}{x['km']:>5} km  " + c(alerts.alert_text(x["name"], x, call), DIM))
+    if not r["alerted"]: print(c("  nobody eligible to alert in range", YEL))
+
+def cmd_alert(a, conn):
+    if a.scan:
+        opened = alerts.scan_low_stock(conn)
+        if not opened: return print(c("No group is critically low (or a call is already open for it).", GRN))
+        for r in opened:
+            print(c(f"\nLow stock: call #{r['call_id']} for {r['blood_group']}, {r['slots']} donor(s) needed at {r['bank']}", BOLD)); _print_alerted(conn, r, r["call_id"])
+        return
+    if not a.group: sys.exit("Give a blood group, e.g.  alert B- 2 --hospital city   (or use --scan)")
+    h, g = _hospital(conn, a.hospital), a.group.upper()
+    r = alerts.open_call(conn, g, a.component, a.qty, lat=h["lat"], lon=h["lon"], reason=f"Manual call from {h['name']}.", actor="cli")
+    if r["existing"]: return print(c(f"A call for {g} {a.component} is already open (#{r['call_id']}). Use  calls  to see it.", YEL))
+    print(c(f"\nCall #{r['call_id']}: {a.qty} x {g} {a.component} donor(s) at {r['bank']}. Wave 1 sent:", BOLD)); _print_alerted(conn, r, r["call_id"])
+    print(c(f"\nNo accept in {alerts.WAVE_TIMEOUT_MIN} min -> next wave.  Try:  tick --force   or   accept {r['call_id']} <donor>", DIM))
+
+def cmd_calls(a, conn):
+    alerts.tick(conn)
+    rows = alerts.list_calls(conn, include_closed=a.all)
+    if not rows: return print(c("No donor calls.", DIM))
+    print(c(f"\n{'Call':<6}{'Need':<14}{'Status':<9}{'Slots':<8}{'Wave':<6}{'Alerted':<9}Where", DIM))
+    for r in rows:
+        col = GRN if r["status"] == "covered" else YEL if r["status"] == "open" else DIM
+        print(f"#{r['id']:<5}{r['blood_group'] + ' ' + r['component']:<14}" + c(f"{r['status']:<9}", col) + f"{r['slots_filled']}/{r['slots_needed']:<6}{r['wave']}/{len(alerts.WAVES):<4}{r['alerted']:<9}{r['bank']}" + c(f"  {r['hospital'] or r['reason']}", DIM))
+
+def cmd_tick(a, conn):
+    moved = alerts.tick(conn, force=a.force)
+    if not moved: return print(c("Nothing to escalate yet (waves wait " + f"{alerts.WAVE_TIMEOUT_MIN} min; use --force to skip the wait).", DIM))
+    for m in moved:
+        if m.get("closed"): print(c(f"Call #{m['call_id']}: all waves used, closed.", YEL)); continue
+        print(c(f"\nCall #{m['call_id']}: next wave", BOLD)); _print_alerted(conn, m, m["call_id"])
+
+def cmd_accept(a, conn):
+    if a.race:
+        r = alerts.race_accept(int(a.call))
+        print(c(f"\n{r['donors']} donors tapped Accept at the same moment, {r['slots']} slot(s) open", BOLD))
+        print(f"won {r['won']}   saw 'already covered' {r['covered']}   " + c(f"overbooked {r['overbooked']}", GRN if not r["overbooked"] else RED))
+        return print(c("Call restored after the test.", DIM))
+    if not a.donor: sys.exit("Say who is accepting:  accept 3 aarav   (or use --race)")
+    d = dn.find_donor(conn, a.donor)
+    try: r = alerts.accept(conn, int(a.call), d["id"])
+    except alerts.AlertError as e: sys.exit(c(f"{d['name']}: {e}", RED))
+    print(c(f"{d['name']}: {r['message']}", GRN if r["won"] else YEL))
+
 def cmd_serve(a, conn):
     from .server import run
     conn.close(); run(a.port, not a.no_browser)
@@ -98,10 +164,16 @@ def main():
     s = sub.add_parser("audit", help="show audit log"); s.add_argument("-n", type=int, default=10); s.set_defaults(f=cmd_audit)
     s = sub.add_parser("request", help="emergency request: rank banks and reserve"); s.add_argument("hospital"); s.add_argument("group"); s.add_argument("qty", type=int, nargs="?", default=1); comp(s); s.set_defaults(f=cmd_request)
     s = sub.add_parser("race", help="simultaneous-request test"); s.add_argument("group"); s.add_argument("-n", type=int, default=20); comp(s); s.set_defaults(f=cmd_race)
+    s = sub.add_parser("donors", help="donor list with eligibility countdown"); s.add_argument("--group"); s.add_argument("--eligible", action="store_true"); comp(s); s.set_defaults(f=cmd_donors)
+    s = sub.add_parser("alert", help="call donors in waves (or --scan for low stock)"); s.add_argument("group", nargs="?"); s.add_argument("qty", type=int, nargs="?", default=1)
+    s.add_argument("--hospital", default="1"); s.add_argument("--scan", action="store_true"); comp(s); s.set_defaults(f=cmd_alert)
+    s = sub.add_parser("calls", help="open donor calls"); s.add_argument("--all", action="store_true"); s.set_defaults(f=cmd_calls)
+    s = sub.add_parser("tick", help="escalate overdue calls to the next wave"); s.add_argument("--force", action="store_true"); s.set_defaults(f=cmd_tick)
+    s = sub.add_parser("accept", help="a donor accepts a call (first come, first served)"); s.add_argument("call"); s.add_argument("donor", nargs="?"); s.add_argument("--race", action="store_true", help="all alerted donors accept at once"); s.set_defaults(f=cmd_accept)
     s = sub.add_parser("serve", help="open the web UI"); s.add_argument("--port", type=int, default=8000); s.add_argument("--no-browser", action="store_true"); s.set_defaults(f=cmd_serve)
     a = p.parse_args()
     conn = db.connect()
     try:
         a.f(a, conn)
-    except ValueError as e:
+    except (ValueError, KeyError) as e:
         sys.exit(str(e))
