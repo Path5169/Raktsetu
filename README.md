@@ -11,3 +11,8 @@ Python 3.8+, standard library only.
 
 ## Web UI
     python -m raktsetu serve        # opens http://127.0.0.1:8000
+
+## Emergency engine
+    python -m raktsetu request "city" B- 1      # rank banks, reserve the best (30 min hold)
+    python -m raktsetu request unverified A+    # blocked: hospital not verified
+    python -m raktsetu race B- -n 20            # 20 simultaneous requests, shows 0 oversold

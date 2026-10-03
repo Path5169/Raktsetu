@@ -1,6 +1,6 @@
 import argparse, os, sys
 from datetime import date
-from . import db, inventory as inv, seed as seeder
+from . import db, dispatch, inventory as inv, seed as seeder
 from .compat import GROUPS, SHELF_LIFE_DAYS, donors_for, recipients_for, reach
 
 USE = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
@@ -62,6 +62,26 @@ def cmd_audit(a, conn):
     print(c("\nAudit log (newest first)", BOLD))
     for r in rows: print(f"{r['ts']}  {r['actor']:<10} {r['action']:<12} {c(r['detail'], DIM)}")
 
+def cmd_request(a, conn):
+    rows = conn.execute("SELECT id,name FROM hospitals WHERE CAST(id AS TEXT)=? OR LOWER(name) LIKE ?", (a.hospital, f"%{a.hospital.lower()}%")).fetchall()
+    if len(rows) != 1: sys.exit(f"Hospital '{a.hospital}' matched {len(rows)}. Use id or a unique name part.")
+    h, g = rows[0], a.group.upper()
+    try: r = dispatch.create_request(conn, h["id"], g, a.component, a.qty)
+    except (dispatch.Blocked, ValueError) as e: sys.exit(c(str(e), RED))
+    print(c(f"\nRequest #{r['request_id']}: {a.qty} x {g} {a.component} for {h['name']}", BOLD))
+    for i, o in enumerate(r["ranking"], 1):
+        print(f"{i}. {o['bank']:<30}{o['km']:>5} km  score {o['score']:>3}  " + c("; ".join(o["why"]), DIM))
+    if r["status"] == "reserved":
+        for lb in r["fallthroughs"]: print(c(f"Lost the race at {lb}, rerouted.", YEL))
+        print(c(f"\nReserved at {r['bank']['bank']} ({r['bank']['units']}). Held until {r['hold_until'][11:16]}.", GRN))
+    else: print(c("\nNo bank can supply this right now.", RED))
+
+def cmd_race(a, conn):
+    r = dispatch.race(a.group.upper(), a.component, a.n)
+    print(c(f"\n{r['requests']} simultaneous requests for {a.group.upper()} {a.component}, {r['supply']} compatible unit(s) in the city", BOLD))
+    print(f"served {r['served']}   turned away {r['turned_away']}   rerouted {r['rerouted']}   " + c(f"oversold {r['oversold']}", GRN if not r["oversold"] else RED))
+    print(c("Stock restored after the test.", DIM))
+
 def cmd_serve(a, conn):
     from .server import run
     conn.close(); run(a.port, not a.no_browser)
@@ -76,6 +96,8 @@ def main():
     s = sub.add_parser("compat", help="who can give to / receive from"); s.add_argument("group"); comp(s); s.set_defaults(f=cmd_compat)
     s = sub.add_parser("add", help="add units to a bank"); s.add_argument("bank"); s.add_argument("group"); s.add_argument("qty", type=int, nargs="?", default=1); comp(s); s.set_defaults(f=cmd_add)
     s = sub.add_parser("audit", help="show audit log"); s.add_argument("-n", type=int, default=10); s.set_defaults(f=cmd_audit)
+    s = sub.add_parser("request", help="emergency request: rank banks and reserve"); s.add_argument("hospital"); s.add_argument("group"); s.add_argument("qty", type=int, nargs="?", default=1); comp(s); s.set_defaults(f=cmd_request)
+    s = sub.add_parser("race", help="simultaneous-request test"); s.add_argument("group"); s.add_argument("-n", type=int, default=20); comp(s); s.set_defaults(f=cmd_race)
     s = sub.add_parser("serve", help="open the web UI"); s.add_argument("--port", type=int, default=8000); s.add_argument("--no-browser", action="store_true"); s.set_defaults(f=cmd_serve)
     a = p.parse_args()
     conn = db.connect()

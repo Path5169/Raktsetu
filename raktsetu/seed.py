@@ -17,7 +17,7 @@ B_NEG_DRAMA = {1: 0, 2: 0, 3: 1, 4: 1}   # city is nearly out of B-: great for t
 
 def seed(conn, today=None):
     rng, today = random.Random(7), today or date.today()
-    for t in ("units", "banks", "hospitals", "donors"): conn.execute(f"DELETE FROM {t}")
+    for t in ("units", "requests", "banks", "hospitals", "donors"): conn.execute(f"DELETE FROM {t}")
     for i, b in enumerate(BANKS, 1): conn.execute("INSERT INTO banks VALUES(?,?,?,?,?)", (i, *b))
     for i, h in enumerate(HOSPITALS, 1): conn.execute("INSERT INTO hospitals VALUES(?,?,?,?,?,?)", (i, *h))
     for i, (n, g, la, lo, ago) in enumerate(DONORS, 1):
