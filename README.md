@@ -1,126 +1,339 @@
-# RaktSetu — Live Blood Network
+# RaktSetu
 
-> A local-first emergency blood routing and donor coordination demo for hackathons.
+## Centralized Real-Time Blood Inventory and Donor Engagement Platform
 
-RaktSetu connects hospital requests, blood-bank inventory, donor alerts, and bank verification in one lightweight application. It uses Python's standard library and SQLite, so there is no account setup, cloud database, or external service required for the demo.
+I built RaktSetu to solve a problem that is easy to describe but surprisingly difficult to handle properly: during a blood emergency, knowing that blood exists somewhere is not enough. I need to know where it is, whether it is compatible, whether it is actually available, whether it is close enough to be useful, and what happens if multiple hospitals request the same unit.
 
-## Phase 6 highlights
+RaktSetu connects hospitals, blood banks, and donors through one centralized system. The platform keeps track of blood inventory, handles emergency requests, matches compatible resources, manages donor engagement, and keeps the inventory consistent when multiple requests happen at the same time.
 
-- **Separated frontend/backend:** presentation pages are isolated from the Python API/domain layer.
-- **Role-based access:** network admin, hospital staff, blood-bank staff, and donor roles have server-enforced permissions.
-- **Organization scoping:** hospital and bank staff can only mutate records belonging to their assigned organization.
-- **Staff authentication:** salted PBKDF2 password hashes and expiring bearer sessions.
-- **Expanded seed network:** 6 blood banks, 8 hospitals, and 32 fictional donors.
-- **Auditability:** login, verification, broadcast, inventory, and routing actions can be traced in the audit log.
+The project is designed as a working prototype for a hackathon, but I have tried to keep the architecture realistic instead of building everything as a single demo page.
 
-## Phase 5 highlights
+## What I am trying to solve
 
-- **Emergency routing:** rank blood banks by compatibility, distance, expiry, and opening hours.
-- **FEFO inventory:** use the units that expire first and prevent expired stock from being issued.
-- **Race-safe reservations:** concurrent requests cannot oversell the same blood units.
-- **Donor app:** mock OTP login, eligibility countdown, donor calls, badges, streaks, and donation history.
-- **Bank verification desk:** `/bank` gives operators a queue of pledged donations and lets them verify completed donations.
-- **Trusted impact data:** verification updates donor eligibility, last-donation date, badges, streaks, and history in one audited action.
-- **Live field view:** the dashboard maps database-backed donor, hospital, and blood-bank locations and refreshes them every 15 seconds.
-- **Emergency broadcasts:** operators can send a targeted shortage broadcast through the existing donor-wave alert engine and see recipients immediately.
-- **Consent-based presence:** logged-in donors can share browser GPS after the normal permission prompt; the dashboard displays their last-seen time.
-- **Local demo data:** fictional Nagpur data is loaded with one command.
+Blood inventory is usually distributed across different locations. This creates several problems:
 
-## Quick start
+* A hospital may not know which nearby blood bank has the required blood group.
+* Blood can approach expiry while another location has a shortage.
+* Emergency requests can involve multiple hospitals competing for limited stock.
+* Searching for compatible donors manually takes time.
+* Fake or repeated donor activity can make the system unreliable.
+* A displayed inventory number is useless if two requests can claim the same unit.
 
-### Windows
+I built RaktSetu around these problems rather than treating it as just a blood availability dashboard.
 
-Double-click [`start.bat`](start.bat), or run it from Command Prompt:
+## How RaktSetu works
 
-```bat
-start.bat
+The basic workflow is:
+
+```text
+Hospital creates emergency request
+        |
+        v
+Hospital and request validation
+        |
+        v
+Blood group compatibility check
+        |
+        v
+Search available blood banks
+        |
+        v
+Rank suitable inventory by availability and distance
+        |
+        v
+Reserve required units safely
+        |
+        +---- If enough blood is available
+        |          |
+        |          v
+        |       Request fulfilled
+        |
+        +---- If stock is insufficient
+                   |
+                   v
+              Start donor search
+                   |
+                   v
+          Contact eligible donors in waves
+                   |
+                   v
+             Donation verification
 ```
 
-The script creates the demo database if needed, starts the server, and opens the app in your browser.
+## Main features
 
-To reset the fictional hackathon data before a demo:
+### Real-time inventory
 
-```bat
-start.bat reset
+Blood banks can manage their available inventory by blood group and component.
+
+Each inventory unit can contain information such as:
+
+* Blood group
+* Component
+* Collection date
+* Expiry date
+* Current status
+* Blood bank
+
+This allows the system to identify inventory that is approaching expiry instead of treating every unit as identical.
+
+### Compatibility matching
+
+I did not want the matching system to simply compare two strings such as `A+` and `A+`.
+
+RaktSetu has a compatibility layer that determines whether a blood group can be used for a particular request and can prefer exact matches where appropriate.
+
+### Emergency dispatch
+
+A hospital can create an emergency requirement with the required blood group, component, quantity, and location.
+
+RaktSetu searches available blood banks and considers factors such as compatibility, quantity, availability, and distance.
+
+If the available inventory cannot satisfy the requirement, the system can move the request into the donor workflow.
+
+### Donor engagement
+
+Instead of contacting every donor at once, RaktSetu uses progressive donor waves.
+
+The system first looks for donors who are compatible, eligible, verified, and closer to the requirement.
+
+If the requirement is still open, the search can expand.
+
+This keeps emergency notifications more targeted.
+
+### Donation verification
+
+A donor accepting a request does not automatically mean that a successful donation happened.
+
+The blood bank has to verify the completed donation.
+
+This distinction is important because otherwise a donor could repeatedly accept requests and artificially build up their donation history.
+
+### Concurrent inventory protection
+
+One of the parts I specifically wanted to handle was the last-unit problem.
+
+For example, if a blood bank has one unit available and two hospitals request it almost simultaneously, both requests should not be able to claim it.
+
+RaktSetu uses transactional reservation so that the inventory check and allocation happen safely.
+
+The goal is:
+
+```text
+Available units: 1
+
+Request A -> successful
+Request B -> rejected
+
+Final inventory: 0
+Oversold units: 0
 ```
 
-### macOS / Linux
+The project also contains a race-condition test for this behavior.
 
-```bash
-python3 -m raktsetu init
-python3 -m raktsetu serve
-```
+## Security and access control
 
-Then open <http://127.0.0.1:8000>.
+I wanted the different users of the platform to have clearly different responsibilities.
 
-## Demo routes
+RaktSetu currently uses four main roles:
 
-| Route | Purpose |
-| --- | --- |
-| `/login` | Staff sign-in |
-| `/` | Hospital/network operations dashboard (staff login required) |
-| `/donor` | Donor-facing app with mock OTP login |
-| `/bank` | Blood-bank verification desk (bank/admin login required) |
+### Network Admin
 
-The dashboard also exposes `/api/network` for the live map payload and `/api/broadcast` for operator-triggered donor broadcasts.
+The administrator has network-wide access.
 
-### Suggested hackathon demo
+The admin can manage and monitor the overall system and its organizations.
 
-1. Open `/` and show blood-group inventory plus expiring units.
-2. Create an emergency request for a low-stock group.
-3. Open `/donor`, choose a demo donor, and accept the donor call.
-4. Open `/bank` and verify the pledged donation.
-5. Return to `/donor` to show updated eligibility, impact, and history.
-6. Use the race test to demonstrate that no units are oversold under concurrent requests.
+### Hospital Staff
 
-## CLI examples
+Hospital accounts are connected to a specific hospital.
 
-```bash
-python3 -m raktsetu init
-python3 -m raktsetu stock
-python3 -m raktsetu expiring --days 3
-python3 -m raktsetu compat A+
-python3 -m raktsetu donors --eligible
-python3 -m raktsetu calls
-python3 -m raktsetu audit
-```
+Hospital staff can create and manage requests belonging to their hospital.
 
-## Tests
+They cannot perform blood-bank operations for another organization.
 
-```bash
-python3 -m unittest discover tests -v
-```
+### Blood Bank Staff
 
-The project currently passes the full regression suite covering compatibility, inventory, emergency routing, concurrency, donor eligibility, OTP login, donor waves, and verification.
+Blood-bank accounts are connected to a specific blood bank.
+
+They can manage inventory and verify donations belonging to their assigned bank.
+
+They cannot simply access another bank's inventory by changing an ID in a request.
+
+### Donor
+
+Donors have access to their own donor information and emergency opportunities.
+
+They cannot access hospital or blood-bank management functions.
+
+These permissions are enforced on the backend. They are not based only on hiding buttons in the frontend.
+
+## Authentication
+
+The current prototype includes:
+
+* Password authentication for staff accounts
+* PBKDF2 password hashing with salts
+* Session-based authentication
+* Session expiry
+* Role-based authorization
+* Organization-level access control
+* OTP-based donor verification
+* Protected backend API routes
+
+Unauthorized requests are rejected by the backend even if someone attempts to call the API directly.
 
 ## Project structure
 
+I separated the frontend from the backend so that the user interface does not become responsible for business logic.
+
 ```text
-raktsetu/
-├── frontend/
-│   ├── index.html          # Operations dashboard shell
-│   ├── donor.html          # Donor app shell
-│   ├── bank.html           # Phase 5 bank desk shell
-│   └── assets/             # External CSS and JavaScript per page
-├── raktsetu/
-│   ├── server.py            # Backend HTTP server and JSON API
-│   ├── alerts.py            # Donor calls and alert waves
-│   ├── db.py                # SQLite schema and audit log
-│   ├── dispatch.py          # Emergency routing and reservations
-│   ├── donors.py            # Eligibility, OTP, badges, and verification
-│   └── inventory.py         # Stock and FEFO expiry logic
-├── tests/                   # Unit and concurrency tests
-├── start.bat                # Windows one-click launcher
-└── README.md
+RaktSetu/
+|
++-- frontend/
+|   +-- index.html
+|   +-- login.html
+|   +-- bank.html
+|   +-- donor.html
+|   +-- assets/
+|       +-- CSS
+|       +-- JavaScript
+|
++-- raktsetu/
+|   +-- auth.py
+|   +-- compat.py
+|   +-- db.py
+|   +-- dispatch.py
+|   +-- donors.py
+|   +-- inventory.py
+|   +-- alerts.py
+|   +-- seed.py
+|   +-- server.py
+|   +-- cli.py
+|
++-- tests/
+|   +-- test_auth.py
+|   +-- test_core.py
+|   +-- test_dispatch.py
+|   +-- test_donors.py
+|
++-- docs/
+|   +-- ARCHITECTURE.md
+|
++-- DEMO_ACCOUNTS.md
++-- README.md
++-- start.bat
 ```
 
-## Notes for GitHub
+The frontend is responsible for presentation and interaction.
 
-- The app is intentionally **local-first** for a simple, privacy-friendly demo.
-- The included people, hospitals, and blood banks are fictional.
-- OTP is mock-only: the demo code is displayed on screen instead of sent by SMS.
-- For production, replace demo credentials and mock OTP with real identity/SMS providers, use HTTPS, secure cookie/token storage, rate limiting, CSRF protection where applicable, secrets management, and stronger organizational verification.
+The backend is responsible for authentication, authorization, validation, compatibility, inventory, dispatch, donor logic, and database operations.
 
-## License
+## Seed data
 
-This repository is released under the MIT License; see [`LICENSE`](LICENSE).
+I included fictional seed data so the application can be demonstrated as an actual network rather than with two or three example records.
+
+The current seed network contains:
+
+* 6 blood banks
+* 8 hospitals
+* 32 donors
+* Staff accounts for different organizations
+* Blood inventory
+* Emergency scenarios
+* Verified and unverified organizations
+
+All seed organizations and donor information are fictional and intended for development and demonstration.
+
+Demo credentials are available in `DEMO_ACCOUNTS.md`.
+
+## Testing
+
+I have included tests for the main parts of the system.
+
+The test suite covers areas including:
+
+* Authentication
+* Role-based access control
+* Blood compatibility
+* Inventory operations
+* Emergency dispatch
+* Concurrent requests
+* Donor eligibility
+* OTP behavior
+* Donation verification
+* Donor alert waves
+* Duplicate or conflicting donor acceptance
+
+The current test suite contains 54 automated tests.
+
+## Running the project
+
+The project can be started using the included startup script:
+
+```text
+start.bat
+```
+
+The backend can also be started through the Python entry points provided in the project.
+
+The exact development setup can be found in the project documentation.
+
+## Important note
+
+RaktSetu is a hackathon prototype and not a production medical system.
+
+The blood, hospital, bank, donor, and location data included in the project is fictional.
+
+A real deployment would require integration with verified blood-bank systems, stronger identity verification, proper medical and regulatory compliance, secure infrastructure, privacy controls, monitoring, and operational validation.
+
+## Why I built it this way
+
+My main goal with RaktSetu was not to make a page that says which blood groups are available.
+
+I wanted to build the coordination layer behind the problem.
+
+A useful system should be able to answer:
+
+```text
+What blood is available?
+
+Is it compatible?
+
+Where is it?
+
+Is it still usable?
+
+Who should receive it?
+
+What happens if two people request it?
+
+What happens when there is not enough?
+
+Who can respond?
+
+Can I trust the donor information?
+
+Was the donation actually verified?
+```
+
+That is what I am trying to solve with RaktSetu.
+
+## Current status
+
+RaktSetu is currently a functional hackathon prototype with:
+
+* Separate frontend and backend
+* Role-based authentication
+* Organization-level permissions
+* Centralized inventory
+* Compatibility matching
+* Emergency dispatch
+* Donor engagement
+* Donation verification
+* Expiry tracking
+* Concurrent inventory protection
+* Seed data
+* Automated tests
+* Audit-oriented architecture
+
+The next step would be moving from fictional seed data and prototype authentication toward integrations with real, verified blood-bank and hospital systems.
