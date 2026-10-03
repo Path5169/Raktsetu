@@ -1,0 +1,10 @@
+const $=s=>document.querySelector(s), esc=t=>String(t??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=d=>d?new Date(d.replace(' ','T')).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—';
+const group=g=>g.slice(0,-1)+'<sup>'+(g.endsWith('+')?'+':'−')+'</sup>';
+function toast(msg){const t=$('#toast');t.textContent=msg;t.className='toast on';clearTimeout(t.h);t.h=setTimeout(()=>t.className='toast',3000)}
+async function load(){const r=await fetch('/api/bank/queue');const d=await r.json();render(d)}
+function render(d){
+ const s=d.summary;$('#stats').innerHTML=`<div class="stat pending"><b>${s.pending}</b><span>pending verification</span></div><div class="stat"><b>${s.verified_today}</b><span>verified today</span></div><div class="stat"><b>${s.verified_total}</b><span>verified all time</span></div>`;
+ $('#queue').innerHTML=d.queue.length?d.queue.map(x=>`<article class="item"><div><div class="person"><div class="avatar">${esc(x.donor).split(' ').map(n=>n[0]).slice(0,2).join('')}</div><div><div class="name">${esc(x.donor)} · ${group(esc(x.blood_group))}</div><div class="meta">Pledged ${fmt(x.created_at)}${x.bank?' · '+esc(x.bank):''}</div></div></div>${x.call_id?`<p class="context">Accepted donor call #${x.call_id}${x.reason?' · '+esc(x.reason):''}</p>`:'<p class="context">Walk-in / manually recorded donation</p>'}</div><button class="verify" data-id="${x.id}">Verify donation</button></article>`).join(''):'<div class="empty"><strong>All caught up.</strong>No donor pledges are waiting for confirmation.</div>';
+}
+$('#refresh').onclick=load;$('#queue').onclick=async e=>{const b=e.target.closest('[data-id]');if(!b)return;b.disabled=true;b.textContent='Verifying…';const r=await fetch('/api/bank/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({donation_id:b.dataset.id})});const d=await r.json();if(!r.ok){b.disabled=false;b.textContent='Verify donation';return toast(d.error||'Could not verify donation')}toast('Donation verified. Donor impact updated.');load()};load();

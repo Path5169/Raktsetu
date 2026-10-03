@@ -1,0 +1,83 @@
+/* RaktSetu polish layer: map loading, liquid bags, livelier surfaces */
+
+/* ---- Map: no blank patches ---- */
+.leaflet-tile{filter:none!important;background:transparent}
+#network-map.osm .leaflet-tile-pane{filter:saturate(.65) hue-rotate(165deg) brightness(.72) contrast(1.1)}
+#network-map{position:relative;background:#0b1b2d}
+#network-map:after{content:"Loading map…";position:absolute;inset:0;z-index:900;display:grid;place-items:center;color:#7fa6b8;font-size:.78rem;letter-spacing:.04em;pointer-events:none;opacity:0;transition:opacity .5s;background:linear-gradient(100deg,#0b1b2d 30%,#12304a 50%,#0b1b2d 70%) 0 0/250% 100%}
+#network-map.is-loading:after{opacity:1;animation:shimmer 1.4s linear infinite}
+@keyframes shimmer{to{background-position:-150% 0}}
+.leaflet-marker span{transition:transform .2s}
+.leaflet-marker:hover span{transform:scale(1.18)}
+.leaflet-marker{animation:markerIn .5s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes markerIn{from{opacity:0;scale:.3}}
+
+/* ---- Blood bags: liquid + jelly ---- */
+.fill{animation:slosh 4.2s ease-in-out infinite;transform-origin:50% 100%}
+.bag:nth-child(2n) .fill{animation-duration:5.1s;animation-delay:-1.3s}
+.bag:nth-child(3n) .fill{animation-duration:4.7s;animation-delay:-2.4s}
+@keyframes slosh{
+0%,100%{clip-path:polygon(0 4%,8% 0,19% 3%,31% 0,43% 3%,55% 0,68% 3%,81% 0,92% 3%,100% 0,100% 100%,0 100%)}
+50%{clip-path:polygon(0 0,8% 4%,19% 0,31% 4%,43% 0,55% 4%,68% 0,81% 4%,92% 0,100% 4%,100% 100%,0 100%)}}
+.fill:before{animation:surface 3.4s ease-in-out infinite}
+@keyframes surface{50%{transform:translateX(3%) scaleY(1.25)}}
+.bag:hover .fill{animation-duration:1.6s}
+.boot .fill{animation:slosh 4.2s ease-in-out infinite,rise 1.1s cubic-bezier(.2,.9,.25,1) both}
+.boot .bag:nth-child(2) .fill{animation-delay:0s,.08s}.boot .bag:nth-child(3) .fill{animation-delay:0s,.16s}.boot .bag:nth-child(4) .fill{animation-delay:0s,.24s}
+@keyframes rise{from{scale:1 0}}
+.bag{translate:0 0;animation:bob 6s ease-in-out infinite}
+.bag:nth-child(2n){animation-delay:-2s}.bag:nth-child(3n){animation-delay:-4s}
+@keyframes bob{50%{translate:0 -4px}}
+.bag.tap{scale:.95;transition:scale .12s}
+.bag.jelly{animation:jelly .9s cubic-bezier(.3,1.6,.5,1) both,bob 6s ease-in-out infinite}
+.bag.jelly .fill{animation-duration:.7s}
+@keyframes jelly{
+0%{scale:.93 1.06;rotate:0deg}
+25%{scale:1.07 .94;rotate:-2.5deg}
+45%{scale:.97 1.03;rotate:2deg}
+65%{scale:1.02 .99;rotate:-1deg}
+100%{scale:1;rotate:0deg}}
+.bag.jelly .label{transition:none;animation:labelPop .7s ease-out}
+@keyframes labelPop{40%{transform:translateZ(52px) scale(1.06)}}
+.bag[aria-pressed=true]{animation:bob 6s ease-in-out infinite,selGlow 2.2s ease-in-out infinite}
+.bag[aria-pressed=true].jelly{animation:jelly .9s cubic-bezier(.3,1.6,.5,1) both,selGlow 2.2s ease-in-out infinite}
+@keyframes selGlow{50%{outline-color:rgba(69,216,202,.25);box-shadow:inset 10px 0 14px rgba(160,213,241,.1),0 0 38px rgba(65,216,202,.28)}}
+.bag.low{animation:bob 6s ease-in-out infinite,lowPulse 1.8s ease-in-out infinite}
+@keyframes lowPulse{50%{border-color:rgba(239,69,97,1);box-shadow:0 0 26px rgba(239,69,97,.3)}}
+.node3d:active{scale:.9;transition:scale .1s}
+
+/* ---- Less dull: ambient light, living details ---- */
+body:before{content:"";position:fixed;inset:-20%;z-index:-1;pointer-events:none;background:radial-gradient(40% 35% at 20% 25%,rgba(239,69,97,.13),transparent 70%),radial-gradient(35% 40% at 80% 70%,rgba(69,216,202,.1),transparent 70%);animation:aurora 22s ease-in-out infinite alternate}
+@keyframes aurora{to{transform:translate3d(6%,-4%,0) rotate(6deg)}}
+.pulse-dot{animation:ping 1.8s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(69,216,202,.55),0 0 18px rgba(69,216,202,.8)}100%{box-shadow:0 0 0 12px rgba(69,216,202,0),0 0 18px rgba(69,216,202,.8)}}
+.orbit-a{animation:spinA 48s linear infinite}.orbit-b{animation:spinB 64s linear infinite}
+@keyframes spinA{to{rotate:360deg}}@keyframes spinB{to{rotate:-360deg}}
+.card{transition:transform .25s,border-color .25s,box-shadow .25s}
+.card:hover{transform:translateY(-3px);border-color:rgba(239,69,97,.32);box-shadow:0 22px 38px rgba(0,0,0,.26)}
+.card:before{transition:width .45s}.card:hover:before{width:100%}
+.overview-card{transition:transform .25s,border-color .25s}.overview-card:hover{transform:translateY(-3px);border-color:rgba(69,216,202,.4)}
+.overview-card .card-arrow{transition:transform .25s}.overview-card:hover .card-arrow{transform:translate(3px,-3px)}
+.go,.hero-button,.ghost,.two button,.chip,.row,.qty button{transition:transform .15s,filter .2s,background .2s,box-shadow .2s}
+.go:active,.hero-button:active,.ghost:active,.chip:active,.two button:active{transform:scale(.96)}
+.chip:hover{transform:translateY(-2px);border-color:var(--cyan)}
+.meter i{transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.hero-button{background-size:200% 100%;background-image:linear-gradient(110deg,#f04b65 20%,#ff7a8a 50%,#b91c40 80%);animation:sheen 5s ease-in-out infinite}
+@keyframes sheen{50%{background-position:100% 0}}
+
+/* ---- Schematic base map: never blank, even if street tiles fail ---- */
+#network-map.no-tiles:before{content:"Street tiles unavailable · showing schematic map";position:absolute;left:10px;bottom:10px;z-index:800;padding:5px 10px;border-radius:99px;font-size:.66rem;color:#a9c3d1;background:rgba(11,27,45,.88);border:1px solid rgba(151,194,214,.22);pointer-events:none}
+.leaflet-tile-pane .leaflet-layer{background:transparent}
+
+/* ---- Theme switch + shared fixes ---- */
+html.theming *,html.theming *:before,html.theming *:after{transition:background-color .35s,border-color .35s,color .35s,box-shadow .35s!important}
+.theme-toggle{position:relative;flex:none;width:58px;height:32px;padding:0;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.08);cursor:pointer;transition:background .3s,border-color .3s}
+.theme-toggle:hover{border-color:rgba(239,69,97,.55)}
+.tt-thumb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#e08a14;box-shadow:0 3px 8px rgba(0,0,0,.28);transition:left .35s cubic-bezier(.3,1.5,.5,1),color .3s}
+.theme-toggle .i-moon{display:none}
+html[data-theme=dark] .tt-thumb{left:29px;color:#5b5fd1}
+html[data-theme=dark] .theme-toggle .i-sun{display:none}html[data-theme=dark] .theme-toggle .i-moon{display:block}
+.theme-toggle:active .tt-thumb{width:30px}
+html[data-theme=dark] .theme-toggle:active .tt-thumb{left:23px}
+.hero-button{color:#fff!important;border:0!important}
+.brand-lockup{background:none!important;border:0!important;padding:0!important}

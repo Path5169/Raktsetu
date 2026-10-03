@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RaktSetu · Bank desk</title>
+<link rel="stylesheet" href="/assets/bank.css"><link rel="stylesheet" href="/assets/app.css"><script src="/assets/auth.js"></script></head><body><div class="wrap">
+<header><div><div class="brand">RaktSetu<small>Bank desk · Phase 5</small></div><p class="sub">Turn a donor promise into a trusted, verified impact record.</p></div><nav class="links"><span id="user-chip">Checking access…</span><button id="logout-btn" type="button">Sign out</button><a href="/">Dashboard</a><a href="/donor">Donor app</a></nav></header>
+<section class="hero"><div><h1>Verification queue</h1><p>Confirm completed donations so eligibility, badges, and streaks stay honest.</p></div><div class="live"><i class="dot"></i> Demo operator mode</div></section>
+<section class="stats" id="stats"></section>
+<section class="card"><div class="cardhead"><div><h2>Awaiting bank confirmation</h2><p>Only pledges from accepted donor calls appear here.</p></div><button class="refresh" id="refresh">Refresh queue</button></div><div class="queue" id="queue"></div></section>
+<p class="foot">Phase 5 demo note: this is a local operator screen with fictional data. In production, add bank staff authentication, role-based access, and an audit export.</p>
+</div><div class="toast" id="toast" role="status"></div>
+<script src="/assets/bank.js" defer></script>
+</body></html>
