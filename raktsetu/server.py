@@ -9,10 +9,7 @@ from .compat import GROUPS, SHELF_LIFE_DAYS, donors_for
 WEB = Path(__file__).parent / "web"
 PAGE = WEB / "index.html"
 DONOR_PAGE = WEB / "donor.html"
-<<<<<<< HEAD
 BANK_PAGE = WEB / "bank.html"
-=======
->>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
 
 def state(conn):
     inv.sweep(conn); dispatch.release_holds(conn); alerts.tick(conn)
@@ -45,11 +42,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
         elif self.path in ("/donor", "/donor/"):
             self._send(200, DONOR_PAGE.read_bytes(), "text/html; charset=utf-8")
-<<<<<<< HEAD
         elif self.path in ("/bank", "/bank/"):
             self._send(200, BANK_PAGE.read_bytes(), "text/html; charset=utf-8")
-=======
->>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
         elif self.path == "/api/donor/me":
             conn = db.connect()
             try:
@@ -63,15 +57,12 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/donor/demo" and dn.OTP_MOCK:   # demo helper so judges can pick a donor to log in as
             conn = db.connect()
             self._send(200, [dict(r) for r in conn.execute("SELECT name,blood_group,phone FROM donors WHERE phone IS NOT NULL ORDER BY id LIMIT 20")]); conn.close()
-<<<<<<< HEAD
         elif self.path == "/api/bank/queue":
             conn = db.connect()
             try:
                 self._send(200, {"queue": dn.pending_donations(conn), "summary": dn.donation_summary(conn)})
             finally:
                 conn.close()
-=======
->>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
         else:
             self._send(404, {"error": "not found"})
     def do_POST(self):
@@ -108,13 +99,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"moved": alerts.tick(conn, force=bool(d.get("force")))})
             elif p == "/api/calls/race":
                 self._send(200, alerts.race_accept(int(d["call_id"])))
-<<<<<<< HEAD
             elif p == "/api/bank/verify":
                 donation_id = int(d["donation_id"])
                 dn.verify_donation(conn, donation_id, actor="bank:operator")
                 self._send(200, {"ok": True, "donation_id": donation_id})
-=======
->>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
             else:
                 self._send(404, {"error": "not found"})
         except dn.AuthError as e:

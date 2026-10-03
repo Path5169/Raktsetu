@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Local runtime data
 *.db
 *.sqlite
@@ -15,10 +14,3 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
-=======
-raktsetu.db
-__pycache__/
-*.pyc
-*.db
-__pycache__/
->>>>>>> 38b6d65c03090c2bf1241720d12fe797db4654ba
